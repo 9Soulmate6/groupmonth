@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Группировка строк по месяцам</title>
+  <style>
+    body {
+      font-family: monospace;
+      background-color: #f4f4f4;
+      padding: 20px;
+    }
+    button {
+      display: block;
+      margin-bottom: 10px;
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    pre {
+      background: #272822;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <button onclick="copyCode()">Скопировать код</button>
+
+  <pre id="code">
+// Здесь начинается твой код
+const SHEET_NAME = 'ОП.MZ'; // название листа
+
+function main() {
+  const today = new Date();
+  const day = today.getDate();
+  if (day !== 8) return;
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    Logger.log(`Лист "${SHEET_NAME}" не найден.`);
+    return;
+  }
+  const monthNames = ['ЯНВАРЬ','ФЕВРАЛЬ','МАРТ','АПРЕЛЬ','МАЙ','ИЮНЬ','ИЮЛЬ','АВГУСТ','СЕНТЯБРЬ','ОКТЯБРЬ','НОЯБРЬ','ДЕКАБРЬ'];
+  const currentIndex = today.getMonth();
+  const prevIndex = (currentIndex + 11) % 12;
+  const currentMonth = monthNames[currentIndex];
+  const prevMonth = monthNames[prevIndex];
+  let data = sheet.getDataRange().getValues();
+  const prevHeaderCol = findHeaderCol(data, prevMonth) || 1;
+  let currHeaderRow = findHeaderRow(data, currentMonth);
+  if (!currHeaderRow) {
+    const insertRow = findFirstEmptyRow(data);
+    const lastCol = sheet.getLastColumn();
+    sheet.insertRowAfter(insertRow - 1);
+    sheet.getRange(insertRow, prevHeaderCol).setValue(currentMonth);
+    sheet.getRange(insertRow, 1, 1, lastCol)
+         .setBackground('#ff9900')
+         .setHorizontalAlignment('left');
+    Logger.log(`Создан заголовок "${currentMonth}" в строке ${insertRow}, колонка ${prevHeaderCol}.`);
+    data = sheet.getDataRange().getValues();
+    currHeaderRow = findHeaderRow(data, currentMonth);
+  } else {
+    Logger.log(`Заголовок "${currentMonth}" уже существует в строке ${currHeaderRow}.`);
+  }
+  const prevHeaderRow = findHeaderRow(data, prevMonth);
+  if (prevHeaderRow && currHeaderRow && currHeaderRow - prevHeaderRow > 1) {
+    const start = prevHeaderRow + 1;
+    const end = currHeaderRow - 1;
+    const numRows = end - start + 1;
+    const lastCol = sheet.getLastColumn();
+    if (numRows > 0 && sheet.getRowGroupDepth(start) === 0) {
+      const range = sheet.getRange(start, 1, numRows, lastCol);
+      range.shiftRowGroupDepth(1);
+      sheet.hideRows(start, numRows);
+      Logger.log(`Сгруппированы строки с ${start} по ${end} под "${prevMonth}".`);
+    } else {
+      Logger.log('Нет строк для группировки или они уже сгруппированы.');
+    }
+  } else {
+    Logger.log('Невозможно выполнить группировку: нет заголовков или недостаточно строк.');
+  }
+}
+
+function findFirstEmptyRow(data) {
+  for (let i = 0; i < data.length; i++) {
+    if (data[i].every(cell => !cell || cell.toString().trim() === '')) {
+      return i + 1;
+    }
+  }
+  return data.length + 1;
+}
+
+function findHeaderRow(data, monthName) {
+  const target = monthName.toUpperCase();
+  for (let i = 0; i < data.length; i++) {
+    if (data[i].some(cell => (cell || '').toString().toUpperCase().includes(target))) {
+      return i + 1;
+    }
+  }
+  return null;
+}
+
+function findHeaderCol(data, monthName) {
+  const target = monthName.toUpperCase();
+  for (let i = 0; i < data.length; i++) {
+    for (let j = 0; j < data[i].length; j++) {
+      if ((data[i][j] || '').toString().toUpperCase().includes(target)) {
+        return j + 1;
+      }
+    }
+  }
+  return null;
+}
+  </pre>
+
+  <script>
+    function copyCode() {
+      const code = document.getElementById("code").innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        alert("Код скопирован в буфер!");
+      });
+    }
+  </script>
+</body>
+</html>
